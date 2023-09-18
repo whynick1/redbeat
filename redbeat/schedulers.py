@@ -161,14 +161,14 @@ Couldn't add entry %r to redis schedule: %r. Contents: %r
 class RedBeatConfig:
     def __init__(self, app=None):
         self.app = app_or_default(app)
-        self.key_prefix = self.either_or('redbeat_key_prefix', 'redbeat:')
+        self.key_prefix = self.key_has_value_or('redbeat_key_prefix', 'redbeat:')
         self.schedule_key = self.key_prefix + ':schedule'
         self.statics_key = self.key_prefix + ':statics'
         self.lock_key = self.either_or('redbeat_lock_key', self.key_prefix + ':lock')
         self.lock_timeout = self.either_or('redbeat_lock_timeout', None)
-        self.redis_url = self.either_or('redbeat_redis_url', app.conf['BROKER_URL'])
-        self.redis_use_ssl = self.either_or('redbeat_redis_use_ssl', app.conf['BROKER_USE_SSL'])
-        self.redbeat_redis_options = self.either_or(
+        self.redis_url = self.key_present_or('redbeat_redis_url', app.conf['BROKER_URL'])
+        self.redis_use_ssl = self.key_has_value_or('redbeat_redis_use_ssl', app.conf['BROKER_USE_SSL'])
+        self.redbeat_redis_options = self.key_has_value_or(
             'redbeat_redis_options', app.conf['BROKER_TRANSPORT_OPTIONS']
         )
 
@@ -180,14 +180,24 @@ class RedBeatConfig:
     def schedule(self, value):
         self.app.conf.beat_schedule = value
 
-    def either_or(self, name, default=None):
+    def warn_if_wrong_format(self, name):
         if name == name.upper():
             warnings.warn(
                 'Celery v4 installed, but detected Celery v3 '
                 'configuration %s (use %s instead).' % (name, name.lower()),
                 UserWarning,
             )
+    
+    def key_has_value_or(self, name, default=None):
+        self.warn_if_wrong_format(name)
         return self.app.conf.first(name, name.upper()) or default
+
+    def key_present_or(self, name, default=None):
+        self.warn_if_wrong_format(name)
+        if name.upper() in map(lambda k: k.upper(), self.app.conf.keys()):
+            return self.app.conf.first(name, name.upper())
+        else:
+            return default
 
 
 class RedBeatSchedulerEntry(ScheduleEntry):

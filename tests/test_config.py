@@ -35,7 +35,17 @@ class test_RedBeatConfig(AppCase):
         self.assertEqual(self.conf.schedule, schedule)
 
     @mock.patch('warnings.warn')
-    def test_either_or(self, warn_mock):
+    def key_has_value_or(self, warn_mock):
         broker_url = self.conf.either_or('BROKER_URL')
         self.assertTrue(warn_mock.called)
         self.assertEqual(broker_url, self.app.conf.broker_url)
+
+    def test_lock_key_default(self):
+        self.app.conf.redbeat_lock_key = None
+        self.conf = RedBeatConfig(self.app)
+        self.assertEqual(self.conf.lock_key, None)
+
+    def test_lock_key_override(self):
+        self.app.conf.redbeat_lock_key = ":custom"
+        self.conf = RedBeatConfig(self.app)
+        self.assertEqual(self.conf.lock_key, 'redbeat::custom')
